@@ -1,0 +1,58 @@
+# Model Architecture
+model:
+  hidden_dim: 128
+  num_layers: 4
+  num_heads: 8
+  dropout: 0.1
+  pe_type: 'laplacian'  # 'laplacian', 'random_walk', 'none'
+  pe_dim: 16
+  use_edge_features: true
+
+# Training Hyperparameters
+training:
+  batch_size: 32
+  epochs: 200
+  lr: 0.001
+  weight_decay: 0.00001
+  patience: 30
+  grad_clip: 1.0
+
+# Data
+data:
+  num_workers: 4
+
+# System
+system:
+  device: 'cuda'
+  seed: 42
+
+# Logging
+logging:
+  use_wandb: false
+  project_name: 'peptides-transformer'
+  exp_name: null  # auto-generated if null
+  checkpoint_dir: './checkpoints'
+  log_interval: 50  # log every N batches
+
+# Ablation Study Configs (for easy switching)
+ablations:
+  depth:
+    - num_layers: 2
+    - num_layers: 4
+    - num_layers: 6
+    - num_layers: 8
+  
+  width:
+    - hidden_dim: 64
+    - hidden_dim: 128
+    - hidden_dim: 256
+  
+  heads:
+    - num_heads: 4
+    - num_heads: 8
+    - num_heads: 16
+  
+  positional_encoding:
+    - pe_type: 'none'
+    - pe_type: 'laplacian'
+    - pe_type: 'random_walk'

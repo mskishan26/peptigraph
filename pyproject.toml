@@ -1,0 +1,17 @@
+[project]
+name = "peptides"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Kishan Sathish Babu",email = "mskishan26@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.11,<4"
+dependencies = [
+    "torch-geometric (>=2.7.0,<3.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
