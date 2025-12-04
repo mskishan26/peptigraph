@@ -95,6 +95,9 @@ def main():
     parser.add_argument('--project_name', type=str, default='peptides-transformer')
     parser.add_argument('--exp_name', type=str, default=None)
     
+    # Resumption
+    parser.add_argument('--resume_from', type=str, default=None, help='Path to checkpoint to resume from')
+    
     args = parser.parse_args()
     
     # Set seed
@@ -155,12 +158,38 @@ def main():
     optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=1e-6)
     
-    # Training loop
+    # Resume from checkpoint if specified
+    start_epoch = 1
     best_val_ap = 0
     patience_counter = 0
     
+    if args.resume_from is not None:
+        if os.path.exists(args.resume_from):
+            print(f"\nResuming from checkpoint: {args.resume_from}")
+            checkpoint = torch.load(args.resume_from, map_location=args.device)
+            
+            model.load_state_dict(checkpoint['model_state_dict'])
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            
+            if checkpoint['scheduler_state_dict'] is not None:
+                scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+            
+            start_epoch = checkpoint['epoch'] + 1
+            best_val_ap = checkpoint['best_val_ap']
+            
+            # Reset patience counter when resuming
+            patience_counter = 0
+            
+            print(f"Resumed from epoch {checkpoint['epoch']}")
+            print(f"Best validation AP so far: {best_val_ap:.4f}")
+            print(f"Continuing training from epoch {start_epoch}")
+        else:
+            print(f"\nWarning: Checkpoint {args.resume_from} not found. Starting from scratch.")
+    
+    # Training loop
+    
     print("\nStarting training...")
-    for epoch in range(1, args.epochs + 1):
+    for epoch in range(start_epoch, args.epochs + 1):
         print(f"\n{'='*50}")
         print(f"Epoch {epoch}/{args.epochs}")
         print(f"{'='*50}")
@@ -200,6 +229,12 @@ def main():
             print(f'*** New best validation AP: {best_val_ap:.4f} ***')
         else:
             patience_counter += 1
+        
+        # Save latest checkpoint for easy resumption
+        save_checkpoint(
+            model, optimizer, scheduler, epoch, best_val_ap, args,
+            f'{checkpoint_dir}/latest_checkpoint.pt'
+        )
         
         # Save checkpoint every 50 epochs
         if epoch % 50 == 0:
