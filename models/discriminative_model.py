@@ -39,8 +39,6 @@ class Discriminative(nn.Module):
         self.pe_encoder = nn.Linear(pe_dim, hidden_dim)
         self.layers = nn.ModuleList()
         for _ in range(num_layers):
-            # A. The Local Message Passing Engine (GINE)
-            # This handles local interactions (bonds)
             local_nn = Sequential(
                 Linear(hidden_dim, hidden_dim),
                 BatchNorm1d(hidden_dim),
@@ -77,29 +75,27 @@ class Discriminative(nn.Module):
         """
         x, edge_index, edge_attr, batch = data.x, data.edge_index, data.edge_attr, data.batch
         
-        # A. Encode Features
+        # Encode Features
         x = self.node_encoder(x)
         
         if self.edge_encoder is not None and edge_attr is not None:
             edge_attr_encoded = self.edge_encoder(edge_attr)
         else:
-            edge_attr_encoded = None # GPSConv handles None internally if configured
+            edge_attr_encoded = None
 
-        # B. Inject Positional Encodings (Critical for LRGB)
         # Assume data.pe exists (e.g., RandomWalkPE or LaplacianPE transform)
         if hasattr(data, 'pe') and data.pe is not None:
              pe_feat = self.pe_encoder(data.pe)
              x = x + pe_feat 
         
-        # C. GPS Backbone Loop
+        # GPS Backbone Loop
         for layer in self.layers:
             x = layer(x, edge_index, batch, edge_attr=edge_attr_encoded)
         
-        # D. Global Pooling
-        # We use Add pooling for molecules (better for counting atoms/features)
+        # Global Pooling
         x_graph = global_add_pool(x, batch)
         
-        # E. Prediction
+        # Prediction
         out = self.graph_pred_linear(x_graph)
         
         return out
