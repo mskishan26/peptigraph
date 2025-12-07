@@ -93,28 +93,54 @@ class RandomWalkPE(nn.Module):
         """
         device = edge_index.device
         
-        # Get adjacency matrix
-        adj = to_dense_adj(edge_index, batch=batch, max_num_nodes=num_nodes // len(torch.unique(batch)))
-        
-        # Compute degree matrix
-        deg = adj.sum(dim=-1, keepdim=True).clamp(min=1)
-        
-        # Transition matrix
-        P = adj / deg
-        
-        # Compute powers of P and extract diagonal (self-return probabilities)
+        # Get unique graphs in batch
+        unique_batches = torch.unique(batch)
         pe_list = []
-        Pk = torch.eye(P.shape[-1], device=device).unsqueeze(0).repeat(P.shape[0], 1, 1)
         
-        for k in range(self.pe_dim):
-            # Extract diagonal (self-return probability at step k)
-            diag = torch.diagonal(Pk, dim1=-2, dim2=-1)
-            pe_list.append(diag)
-            Pk = torch.bmm(Pk, P)
+        for b in unique_batches:
+            # Get subgraph for this batch element
+            mask = batch == b
+            node_ids = torch.where(mask)[0]
+            n_nodes = mask.sum().item()
+            
+            # Create subgraph edge_index
+            edge_mask = torch.isin(edge_index[0], node_ids) & torch.isin(edge_index[1], node_ids)
+            sub_edge_index = edge_index[:, edge_mask]
+            
+            # Remap node indices to 0...n-1
+            node_map = {node_ids[i].item(): i for i in range(n_nodes)}
+            
+            if sub_edge_index.shape[1] > 0:
+                remapped_edges = torch.tensor([
+                    [node_map[sub_edge_index[0, i].item()], node_map[sub_edge_index[1, i].item()]]
+                    for i in range(sub_edge_index.shape[1])
+                ], device=device).T
+                
+                # Get adjacency matrix for this graph
+                adj = to_dense_adj(remapped_edges, max_num_nodes=n_nodes).squeeze(0)
+            else:
+                # No edges - use zero adjacency
+                adj = torch.zeros((n_nodes, n_nodes), device=device)
+            
+            # Compute degree and transition matrix
+            deg = adj.sum(dim=-1, keepdim=True).clamp(min=1)
+            P = adj / deg
+            
+            # Compute powers of P and extract diagonal (self-return probabilities)
+            graph_pe = []
+            Pk = torch.eye(n_nodes, device=device)
+            
+            for k in range(self.pe_dim):
+                # Extract diagonal (self-return probability at step k)
+                diag = torch.diag(Pk)
+                graph_pe.append(diag)
+                Pk = torch.mm(Pk, P)
+            
+            # Stack to [n_nodes, pe_dim]
+            graph_pe = torch.stack(graph_pe, dim=-1)
+            pe_list.append(graph_pe)
         
-        pe = torch.stack(pe_list, dim=-1)  # [batch_size, max_nodes, pe_dim]
-        
-        # Flatten to [total_nodes, pe_dim]
-        pe = pe.reshape(-1, self.pe_dim)
+        # Concatenate all positional encodings
+        pe = torch.cat(pe_list, dim=0)
         
         return pe
