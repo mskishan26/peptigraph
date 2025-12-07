@@ -1,0 +1,67 @@
+📌 Insights from Peptides-func Label Distribution (EDA)
+
+
+The dataset is strongly imbalanced across labels
+
+- Label frequencies vary drastically (e.g., Label 4 has ~6800 positives, while Label 8 is near zero).
+
+- This confirms that Peptides-func is a highly imbalanced multi-label classification task, which will heavily affect model training.
+
+
+Some biochemical properties are much more common
+
+- Label 4 (“Bulkiness”) appears in nearly half of all graphs — the dominant feature across peptides.
+
+- Labels 6, 7, and 9 also occur relatively frequently.
+
+- These common properties will be easier for the model to predict and may dominate the loss.
+
+
+Some functional properties are extremely rare
+
+- Label 8 (“Membrane interaction”) is extremely sparse.
+
+- Sparse labels are vulnerable to:
+
+    - Underfitting (model predicts 0 for everything)
+
+    - Vanishing gradients
+
+    - Poor AP/F1 scores
+
+    - This requires special handling (class weights, focal loss, etc.).
+
+
+
+Graph Transformer performance will differ across labels
+
+Transformer models tend to:
+
+    - Learn high-frequency labels quickly
+
+    - Struggle with rare label signals
+
+Attention layers may ignore rare label patterns unless re-weighted.
+
+
+
+- Accuracy is meaningless in imbalanced multi-label settings.
+
+we should try out these metrics:
+
+    - Per-label AP
+
+    - Macro AP
+
+    - Micro AP
+
+    - Macro F1
+
+These metrics reflect performance across all labels, including rare ones.
+
+
+We do not apply structural preprocessing to the Peptides-func training data because each graph represents a real peptide molecule.
+Modifying nodes, edges, or graph structures would break the chemical validity and make the labels inconsistent with 
+the underlying molecule.Although the dataset is highly imbalanced, we address this issue through model-side methods
+—such as class-weighted BCE loss, focal loss, or balanced sampling—rather than altering the data itself.
+This preserves the biological correctness of the dataset while enabling effective learning.
